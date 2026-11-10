@@ -1,0 +1,8 @@
+Vercel Environment Variables
+
+FOODSAFETY_API_KEY = 식품안전나라 인증키
+DATA_GO_KR_SERVICE_KEY = 공공데이터포털 일반 인증키(Decoding 권장)
+KAKAO_REST_API_KEY = 카카오 Developers REST API 키 (선택)
+
+주의: 값에 따옴표를 넣지 마세요. Production 환경을 반드시 포함하세요.
+환경변수 추가/수정 뒤에는 Deployments에서 Redeploy가 필요합니다.
