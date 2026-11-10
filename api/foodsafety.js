@@ -60,13 +60,18 @@ module.exports=async function handler(req,res){
     const keyword = String(req.query.keyword || '').trim();
     const industry = String(req.query.industry || '').trim();
     const region = String(req.query.region || '').trim().toLowerCase();
-    let rows=[]; let meta={services:[]};
+    const page = Math.max(1, Number(req.query.page)||1);
+    const requestedRows = Math.min(300, Math.max(20, Number(req.query.rows)||200));
+    const perServiceRows = Math.max(10, Math.ceil(requestedRows/2));
+    const start = (page-1)*perServiceRows + 1;
+    const end = start + perServiceRows - 1;
+    let rows=[]; let meta={services:[],page,requestedRows};
 
     if(mode === 'material' || (mode==='search' && keyword)){
       if(!keyword) return res.status(400).json({error:'원재료/품목 검색어를 입력하세요.'});
       const [mat, prod] = await Promise.all([
-        foodSafetyCall('C002',{start:1,end:1000,params:{RAWMTRL_NM:keyword}}).catch(e=>({rows:[],warning:e.message})),
-        foodSafetyCall('I1250',{start:1,end:1000,params:{PRDLST_NM:keyword}}).catch(e=>({rows:[],warning:e.message}))
+        foodSafetyCall('C002',{start,end,params:{RAWMTRL_NM:keyword}}).catch(e=>({rows:[],warning:e.message})),
+        foodSafetyCall('I1250',{start,end,params:{PRDLST_NM:keyword}}).catch(e=>({rows:[],warning:e.message}))
       ]);
       const map=new Map();
       const add=(r,kind)=>{
@@ -81,14 +86,14 @@ module.exports=async function handler(req,res){
       mat.rows.forEach(r=>add(r,'material')); prod.rows.forEach(r=>add(r,'product'));
       rows=[...map.values()];
       await enrichBase(rows,15);
-      meta={services:['C002','I1250','I2500'], materialCount:mat.rows.length, productCount:prod.rows.length, warnings:[mat.warning,prod.warning].filter(Boolean)};
+      meta={services:['C002','I1250','I2500'],page,requestedRows,materialCount:mat.rows.length,productCount:prod.rows.length,hasMore:mat.rows.length>=perServiceRows||prod.rows.length>=perServiceRows,warnings:[mat.warning,prod.warning].filter(Boolean)};
     } else if(mode === 'company' && keyword){
       const [base, restaurant] = await Promise.all([
-        foodSafetyCall('I2500',{start:1,end:1000,params:{BSSH_NM:keyword}}).catch(e=>({rows:[],warning:e.message})),
-        foodSafetyCall('I1200',{start:1,end:1000,params:{BSSH_NM:keyword}}).catch(e=>({rows:[],warning:e.message}))
+        foodSafetyCall('I2500',{start,end,params:{BSSH_NM:keyword}}).catch(e=>({rows:[],warning:e.message})),
+        foodSafetyCall('I1200',{start,end,params:{BSSH_NM:keyword}}).catch(e=>({rows:[],warning:e.message}))
       ]);
       rows = uniqBy([...base.rows.map(r=>baseRow(r,'I2500')),...restaurant.rows.map(r=>baseRow(r,'I1200'))],companyKey);
-      meta={services:['I2500','I1200'],warnings:[base.warning,restaurant.warning].filter(Boolean)};
+      meta={services:['I2500','I1200'],page,requestedRows,hasMore:base.rows.length>=perServiceRows||restaurant.rows.length>=perServiceRows,warnings:[base.warning,restaurant.warning].filter(Boolean)};
     } else {
       // 최근 신규/변경 기본조회는 가벼운 변경이력 API만 사용한다.
       // I2859 = 식품업소 인허가 변경 정보, I2861 = 음식점업소 인허가 변경 정보.
@@ -101,8 +106,8 @@ module.exports=async function handler(req,res){
       const pickedDate = requested < minAllowed ? minAllowed : requested;
       const params={CHNG_DT:pickedDate}; if(keyword)params.BSSH_NM=keyword;
       const [foodChanges, restaurantChanges] = await Promise.all([
-        foodSafetyCall('I2859',{start:1,end:200,params}).catch(e=>({rows:[],warning:`I2859: ${e.message}`})),
-        foodSafetyCall('I2861',{start:1,end:200,params}).catch(e=>({rows:[],warning:`I2861: ${e.message}`}))
+        foodSafetyCall('I2859',{start,end,params}).catch(e=>({rows:[],warning:`I2859: ${e.message}`})),
+        foodSafetyCall('I2861',{start,end,params}).catch(e=>({rows:[],warning:`I2861: ${e.message}`}))
       ]);
       const map=new Map();
       for(const r of [...foodChanges.rows.map(x=>baseRow(x,'I2859')),...restaurantChanges.rows.map(x=>baseRow(x,'I2861'))]){
@@ -110,8 +115,9 @@ module.exports=async function handler(req,res){
       }
       rows=[...map.values()];
       meta={
-        services:['I2859','I2861'],
+        services:['I2859','I2861'],page,requestedRows,
         actualFrom:pickedDate,
+        hasMore:foodChanges.rows.length>=perServiceRows||restaurantChanges.rows.length>=perServiceRows,
         attempts:[{from:pickedDate,food:foodChanges.rows.length,restaurant:restaurantChanges.rows.length,clamped:requested!==pickedDate}],
         warnings:[foodChanges.warning,restaurantChanges.warning].filter(Boolean)
       };
@@ -120,7 +126,7 @@ module.exports=async function handler(req,res){
     if(industry) rows=rows.filter(r=>(r.INDUTY_CD_NM||'').includes(industry));
     if(region) rows=rows.filter(r=>(r.ADDR||'').toLowerCase().includes(region));
     rows.sort((a,b)=>(ymd(b.CHNG_DT||b.PRMS_DT)).localeCompare(ymd(a.CHNG_DT||a.PRMS_DT)));
-    rows=rows.slice(0,300).map(r=>({...r,displayDate:normDate(r.CHNG_DT||r.PRMS_DT)}));
+    rows=rows.slice(0,requestedRows).map(r=>({...r,displayDate:normDate(r.CHNG_DT||r.PRMS_DT)}));
     res.setHeader('Cache-Control','s-maxage=120, stale-while-revalidate=300');
     return res.status(200).json({source:'FoodSafetyKorea',mode,total:rows.length,rows,meta});
   }catch(e){ return res.status(500).json({error:e?.message||'서버 오류',code:e?.code||'',service:e?.service||''}); }

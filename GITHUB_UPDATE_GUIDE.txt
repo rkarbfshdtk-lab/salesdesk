@@ -1,24 +1,15 @@
-SALES DESK v6.6 GITHUB UPDATE GUIDE
+SALES DESK v6.9 ACCUMULATIVE
 
-1) GitHub 로그인 -> salesdesk 저장소 열기
-2) 저장소 상단 Add file -> Upload files
-3) 이 ZIP을 압축 푼 뒤, 안의 파일/폴더 전체를 업로드
-   - index.html
-   - api/
-   - package.json
-   - vercel.json
-   - 기타 안내/SQL 파일
-4) 같은 이름의 기존 파일이 있으면 새 파일로 교체
-5) 아래 Commit changes 클릭
-   Commit message 예: Update SALES DESK v6.6
-6) Vercel은 GitHub main 브랜치 연결 상태라면 자동 배포
-7) Vercel -> salesdesk11 -> Deployments에서 Ready 확인
-8) 테스트
-   https://salesdesk11.vercel.app/api/health
-   https://salesdesk11.vercel.app/api/foodsafety?mode=material&keyword=낙지
-   https://salesdesk11.vercel.app/api/franchise?rows=30
+핵심 변경
+- 식품안전나라: 200건씩 누적조회
+- 다음 200건 추가 버튼으로 기존 결과 유지하며 누적
+- 검색조건 변경 후에는 새 API 조회로 초기화
+- 영업제외 처리한 업체는 CRM의 excluded/sales_status=영업제외 기준으로 이후 신규발굴 목록에서 자동 숨김
+- HACCP 20건, 프랜차이즈 30건 누적조회 유지
 
-필수 Vercel 환경변수
-FOODSAFETY_API_KEY
-DATA_GO_KR_SERVICE_KEY
-KAKAO_REST_API_KEY
+적용
+1) ZIP 압축 해제
+2) GitHub salesdesk 저장소에 내용물 전체 업로드/덮어쓰기
+3) Commit changes
+4) Vercel 자동 배포 Ready 확인
+5) Ctrl+Shift+R
