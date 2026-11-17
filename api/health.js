@@ -2,7 +2,7 @@ module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   return res.status(200).json({
     ok: true,
-    version: '6.4-diagnostic',
+    version: '7.0-prospect',
     runtime: 'vercel-node',
     timestamp: new Date().toISOString(),
     env: {
