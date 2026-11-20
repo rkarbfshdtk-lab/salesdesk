@@ -1,0 +1,50 @@
+SALES DESK v7.2 · CONTACT FLOW + DAILY LEADS
+2026-11-20
+
+[새 기능]
+1. 연락처 대조: 기존처럼 VCF / CSV / XLS / XLSX 분석. 문) / 거) / 직납) / 외식전) / 수엑) / 태그없음 카테고리 추가.
+2. 연락처 분석 후 '분류 결과를 Supabase에 저장' 실행: 전화번호 기준 중복 제거, 기존 메모·영업상태·다음연락일 유지.
+3. 숨은 연락처 영업: 미접촉·부재·재연락·문) 후속 대기열에서 전화 -> 통화상태 -> 메모 -> 다음연락 -> 저장 후 다음.
+4. 자동 발굴 25: 식품안전나라 + HACCP 공식 공개데이터의 새 후보 조회. 기존 CRM/매출거래처/기존폰 중복 확인.
+5. 손으로 확인한 연락처/공공후보는 개별 CRM 등록. 네이버/카카오 API 검색 결과는 저장하지 않음.
+
+[반드시 지켜야 하는 설치 순서]
+1. 먼저 Supabase Dashboard > SQL Editor에 접속하여 SUPABASE_LEADS_SETUP.sql 전체를 실행하고 성공했는지 확인.
+   - 기존 sw_crm_customers / sw_legacy_accounts / sw_sales_activity 테이블은 수정하지 않음.
+   - 4개의 신규 테이블: sw_contact_pool, sw_contact_actions, sw_lead_candidates, sw_lead_runs.
+   - Supabase Auth 로그인이 되어야 브라우저에서 테이블 조회 가능(RLS 적용).
+2. Vercel > Settings > Environment Variables (Production)에서 아래 설정 추가/확인:
+   FOODSAFETY_API_KEY          = 기존 식품안전나라 API 키
+   DATA_GO_KR_SERVICE_KEY     = 기존 공공데이터 일반인증키
+   SUPABASE_URL               = 현재 SALES DESK의 Supabase Project URL
+   SUPABASE_SERVICE_ROLE_KEY  = 서버 전용 관리자 서비스 키 또는 sb_secret_... (절대 index.html에 넣지 말 것)
+   SALES_DESK_OWNER_ID        = Supabase > Authentication > Users에서 확인한 본인 로그인 사용자 UID(UUID)
+   CRON_SECRET                = 충분히 긴 무작위 값 (Vercel Cron 호출 인증용; 직접 외부 공유 금지)
+   기존 KAKAO_REST_API_KEY는 그대로 유지.
+3. GitHub salesdesk 저장소 최상위에서 이 ZIP의 파일들을 동일 경로로 업데이트.
+   - index.html, vercel.json, package.json
+   - api/ 안의 .js 파일들 (기존 함수 파일 유지, daily-leads-refresh.js 추가)
+   - SQL/TXT 파일은 관리용이며 Vercel 자동 배포에는 영향 없음.
+   - ZIP 자체나 최상위 폴더를 다시 중첩해서 올리지 말 것.
+4. GitHub Commit 완료 후 Vercel Deployments에서 Production 배포 Ready 확인.
+5. SALES DESK 로그인 -> 연락처 대조 -> 연락처_004.vcf 등 최신 연락처 전체 업로드 -> 대조 시작 -> 분류 통계 확인 -> Supabase 저장.
+6. '숨은 연락처 영업' 탭에 전화할 번호가 나오는지 확인. 저장 -> 다음 동작 확인.
+7. '자동 발굴 25' 탭에서 기존 공개데이터 후보 조회. 자동 수집이 아직 실행되지 않았으면 0개 표시 가능.
+
+[매일 자동 신규업체 발굴]
+- Vercel Cron: 매일 UTC 21:00(한국시간 06:00) 실행 예정. Hobby 요금제의 크론 시작 시간은 최대 1시간 정도 변동할 수 있음.
+- API: GET /api/daily-leads-refresh (CRON_SECRET Bearer 인증이 없으면 401)
+- 식품안전나라 최신변경 200건/1페이지 + HACCP 20건/1페이지를 첫 단계로 요청하고 API 지연 시 오류를 기록.
+- 실제 검증 가능한 후보만 저장. 도매·유통·제조 8/9/8을 목표로 하지만 확보된 자료에 따라 숫자가 적을 수 있음.
+- 저장된 후보는 기존 CRM/거래처/영업폰 DB와의 이름 정확일치·번호일치 기준으로 제외. 유사명은 누락 가능하므로 직접 확인 필요.
+- 수집 실패 시 원기관 API 가용성을 확인. Vercel > Logs 및 Supabase sw_lead_runs 참조.
+- 네이버/카카오 API 결과는 약관상 무단 대량 저장하지 않음. 공급/구매 가능성은 확인된 사실이 아니라 영업 가설임.
+
+[중요한 한계]
+- 이 ZIP을 만들었다고 Supabase와 Vercel에 직접 배포된 것은 아님. SQL 및 환경변수 연결은 운영자 설치 필요.
+- 실제 원기관 API / Supabase 운영 서버 테스트는 미실시. 소스 문법 및 모의 테스트만 수행.
+- ChatGPT 매일 08:00 DAILY LEADS 예약 브리핑은 별도 자동화. 이 Vercel Cron이 저장한 Supabase DB를 ChatGPT 예약 작업이 자동으로 읽는 기능까지 연결되지는 않았음.
+- Vercel 프로젝트에서 Fluid Compute 및 Cron 지원 설정을 확인할 것.
+- 연락처에는 개인 휴대전화가 포함되어 있으므로 사용자 권한 제한, 보관기준, 연락거절 처리 및 관련 법령을 준수.
+- 자동 전화/문자 발송은 구현하지 않았으며 모든 발송은 사용자가 직접 진행한 뒤 기록.
+- CRM/매출 데이터는 삭제하지 않음. 신규 SQL 실행 전 Supabase 백업을 권장.

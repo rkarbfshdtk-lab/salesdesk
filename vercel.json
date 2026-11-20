@@ -1,5 +1,31 @@
 {
-  "$schema":"https://openapi.vercel.sh/vercel.json",
-  "functions":{"api/*.js":{"maxDuration":30}},
-  "headers":[{"source":"/api/(.*)","headers":[{"key":"Cache-Control","value":"no-store"}]}]
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/*.js": {
+      "maxDuration": 30
+    },
+    "api/haccp.js": {
+      "maxDuration": 70
+    },
+    "api/daily-leads-refresh.js": {
+      "maxDuration": 120
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/daily-leads-refresh",
+      "schedule": "0 21 * * *"
+    }
+  ]
 }

@@ -1,0 +1,12 @@
+SALES DESK v7.0 HACCP 30초 대기 업데이트
+
+수정 파일: api/haccp.js, index.html, vercel.json
+
+1. HACCP 인증업체 API: 최대 30초
+2. 실패 시 대체 제조가공 API: 최대 30초
+3. 웹브라우저 HACCP 조회 대기: 최대 75초 (다른 API는 기존 25초 유지)
+4. Vercel HACCP 함수: 최대 70초 (다른 API는 기존 30초 유지)
+5. 기존 고객 DB/Supabase 스키마 변경 없음
+
+배포: 세 파일을 원래 경로대로 GitHub에 덮어쓰고 Commit, Vercel Ready 확인. 이미 v7.0 적용했다면 PATCH ZIP만 사용 가능.
+원기관이 각 30초 내내 응답하지 않으면 정상적으로 지연 오류를 반환하며 무한 대기하지 않습니다.

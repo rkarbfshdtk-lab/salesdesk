@@ -1,1 +1,8 @@
-{"name":"sales-desk","version":"6.4.0","private":true,"engines":{"node":">=20"}}
+{
+  "name": "sales-desk",
+  "version": "7.2.0",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  }
+}

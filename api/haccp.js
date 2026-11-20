@@ -5,7 +5,7 @@ function normalizeKey(v=''){
   const s=String(v||'').trim();
   try { return s.includes('%') ? decodeURIComponent(s) : s; } catch { return s; }
 }
-async function fetchText(url, ms=6000){
+async function fetchText(url, ms=30000){
   const ctl=new AbortController();
   const t=setTimeout(()=>ctl.abort(),ms);
   try{
@@ -24,7 +24,7 @@ async function primary(key,pageNo,numOfRows,keyword){
   const base='https://apis.data.go.kr/B553748/CertCompanyListService2/getCertCompanyListService2';
   const qs=new URLSearchParams({ServiceKey:key,pageNo:String(pageNo),numOfRows:String(numOfRows),returnType:'json'});
   if(keyword)qs.set('company',keyword);
-  const {r,text}=await fetchText(`${base}?${qs.toString()}`,6000);
+  const {r,text}=await fetchText(`${base}?${qs.toString()}`,30000);
   const parsed=parseApiText(text);
   if(!parsed.data)throw new Error(parsed.error||`HACCP HTTP ${r.status}`);
   if(!r.ok)throw new Error(apiMessage(parsed.data)||`HACCP HTTP ${r.status}`);
@@ -33,7 +33,7 @@ async function primary(key,pageNo,numOfRows,keyword){
 async function fallbackFoodCompany(key,pageNo,numOfRows){
   const base='https://apis.data.go.kr/B553748/FoodCompanyListService/getFoodCompanyList';
   const qs=new URLSearchParams({ServiceKey:key,retunType:'json',pageNo:String(pageNo),numOfRows:String(Math.min(numOfRows,100))});
-  const {r,text}=await fetchText(`${base}?${qs.toString()}`,5000);
+  const {r,text}=await fetchText(`${base}?${qs.toString()}`,30000);
   const parsed=parseApiText(text);
   if(!parsed.data)throw new Error(parsed.error||`HACCP 제조가공 HTTP ${r.status}`);
   if(!r.ok)throw new Error(apiMessage(parsed.data)||`HACCP 제조가공 HTTP ${r.status}`);
@@ -47,18 +47,18 @@ module.exports=async function handler(req,res){
     const warnings=[];
     let out;
     try{out=await primary(key,pageNo,numOfRows,keyword)}catch(e){
-      if(e?.name==='AbortError')warnings.push('HACCP 인증업체 API 응답시간 초과'); else warnings.push(`HACCP 인증업체: ${e.message}`);
+      if(e?.name==='AbortError')warnings.push('HACCP 인증업체 API 30초 응답시간 초과'); else warnings.push(`HACCP 인증업체: ${e.message}`);
       try{out=await fallbackFoodCompany(key,pageNo,numOfRows)}catch(f){
-        if(f?.name==='AbortError')warnings.push('HACCP 제조가공 API 응답시간 초과'); else warnings.push(`HACCP 제조가공: ${f.message}`);
+        if(f?.name==='AbortError')warnings.push('HACCP 제조가공 API 30초 응답시간 초과'); else warnings.push(`HACCP 제조가공: ${f.message}`);
       }
     }
-    if(!out)return res.status(504).json({error:'HACCP 원기관 응답이 지연되고 있습니다. 잠시 후 다시 조회해 주세요.',warnings});
+    if(!out)return res.status(504).json({error:'HACCP 원기관이 각 요청의 30초 대기시간 안에 응답하지 않았습니다. 잠시 후 다시 조회해 주세요.',warnings});
     let rows=out.rows||[];
     if(keyword){const q=keyword.replace(/\s+/g,'').toLowerCase();rows=rows.filter(r=>JSON.stringify(r).replace(/\s+/g,'').toLowerCase().includes(q));}
     res.setHeader('Cache-Control','s-maxage=180, stale-while-revalidate=600');
     return res.status(200).json({source:'HACCP',service:out.service,rows,meta:{count:rows.length,totalCount:totalCount(out.raw),pageNo,numOfRows,keyword,warnings}});
   }catch(e){
-    if(e?.name==='AbortError')return res.status(504).json({error:'HACCP 원기관 API 응답시간 초과'});
+    if(e?.name==='AbortError')return res.status(504).json({error:'HACCP 원기관 API 30초 응답시간 초과'});
     return res.status(500).json({error:e?.message||'HACCP 조회 오류'});
   }
 }
